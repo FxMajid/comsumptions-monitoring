@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+/*
+ * Brand tokens. Red is the primary accent, reserved for actions and the active
+ * navigation state. Green, amber, and red-alert are status-only: a number is
+ * never coloured unless the colour carries meaning.
+ */
+@theme {
+  --color-brand-50: oklch(0.97 0.02 20);
+  --color-brand-100: oklch(0.93 0.05 20);
+  --color-brand-500: oklch(0.58 0.21 25);
+  --color-brand-600: oklch(0.52 0.21 25);
+  --color-brand-700: oklch(0.45 0.19 25);
+
+  --color-surface: oklch(0.99 0.002 250);
+  --color-surface-raised: oklch(1 0 0);
+  --color-surface-sunken: oklch(0.97 0.004 250);
+  --color-line: oklch(0.91 0.005 250);
+  --color-ink: oklch(0.24 0.01 250);
+  --color-ink-muted: oklch(0.52 0.012 250);
+
+  --color-ok: oklch(0.62 0.15 150);
+  --color-warn: oklch(0.72 0.15 75);
+  --color-alert: oklch(0.58 0.2 25);
+}
+
+/*
+ * Dark mode overrides the custom properties the generated utilities already
+ * reference. Plain CSS, not a second @theme block, because @theme is a
+ * build-time declaration and only belongs at the top level.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: oklch(0.19 0.008 250);
+    --color-surface-raised: oklch(0.23 0.009 250);
+    --color-surface-sunken: oklch(0.16 0.008 250);
+    --color-line: oklch(0.32 0.01 250);
+    --color-ink: oklch(0.95 0.004 250);
+    --color-ink-muted: oklch(0.72 0.01 250);
+
+    --color-ok: oklch(0.72 0.15 150);
+    --color-warn: oklch(0.79 0.14 75);
+    --color-alert: oklch(0.68 0.19 25);
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+}
+
+/* Tabular figures keep column-aligned rupiah and quantities from jittering. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
