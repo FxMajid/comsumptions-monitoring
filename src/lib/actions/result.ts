@@ -35,3 +35,26 @@ export type FormAction = (
   state: ActionState,
   formData: FormData,
 ) => Promise<ActionState>;
+
+/**
+ * What a claim link looks like at the moment it is issued. Only the hash of a
+ * token is stored, so this payload is the one and only time the link can be
+ * read; a lost link is replaced, never recovered.
+ */
+export type IssuedClaim = {
+  beneficiaryCode: string;
+  beneficiaryName: string;
+  claimUrl: string;
+  expiresAt: string;
+  /** Present for a single issue, omitted in bulk to keep the response small. */
+  qr?: { size: number; path: string };
+};
+
+export type ClaimActionState = ActionState & { issued?: IssuedClaim[] };
+
+export const CLAIM_IDLE_STATE: ClaimActionState = { status: "idle" };
+
+export type ClaimFormAction = (
+  state: ClaimActionState,
+  formData: FormData,
+) => Promise<ClaimActionState>;

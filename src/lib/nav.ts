@@ -33,7 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/vendor", label: "Vendor & Pesanan", icon: "store", available: true },
   { href: "/master", label: "Data Master", icon: "database", available: true },
   { href: "/gudang", label: "Gudang & Stok", icon: "boxes", available: false },
-  { href: "/pengambilan", label: "Pengambilan", icon: "scan-line", available: false },
+  { href: "/pengambilan", label: "Pengambilan", icon: "scan-line", available: true },
   { href: "/rekonsiliasi", label: "Rekonsiliasi", icon: "scale", available: false },
   { href: "/pengguna", label: "Pengguna", icon: "users", available: false },
 ];

@@ -48,6 +48,71 @@ kuantitas pengambilan yang sudah `POSTED`: `PENDING`, `PARTIALLY_PICKED`,
 Status tidak disimpan sebagai kolom karena kolom seperti itu akan melenceng dari
 transaksi pengambilan yang sebenarnya terjadi.
 
+## Token klaim & QR
+
+Peserta tidak punya akun. Yang dipegangnya satu token acak 32 byte
+(base64url) di dalam QR, dan token itu **bearer secret**: siapa pun yang
+memegangnya bisa melihat hak konsumsi penerima tersebut.
+
+Karena itu tiga hal wajib, dan ketiganya dijaga di database:
+
+- `expires_at` tidak nullable — tautan tanpa masa berlaku akan tetap membuka
+  data peserta setelah event selesai.
+- Pencabutan selalu mungkin lewat `revoked_at` + `revocation_reason`.
+- Hanya satu token hidup per penerima, dijaga index unik parsial
+  `idx_beneficiary_access_tokens_live`. Mengganti QR berarti mencabut yang lama,
+  jadi QR yang sudah dicetak tidak pernah diam-diam tetap berlaku berdampingan
+  dengan penggantinya.
+
+### Hanya hash yang disimpan
+
+`beneficiary_access_tokens.token_hash` menyimpan SHA-256 dari token, bukan
+tokennya. Tabel ini bocor pun tidak menghasilkan QR yang bisa dipakai.
+
+Konsekuensinya yang harus diterima: **token mentah hanya tampil sekali**, di
+layar yang menerbitkannya. Tautan yang hilang tidak bisa dicari, hanya bisa
+diganti dengan yang baru — dan menerbitkan yang baru otomatis mencabut yang lama.
+Itu sebabnya halaman penerbitan menampilkan daftar tautan dalam format
+tab-separated, supaya bisa ditempel ke spreadsheet untuk mail merge sebelum
+ditinggalkan.
+
+### Dua pintu untuk satu token
+
+| Rute | Siapa | Yang terjadi |
+| --- | --- | --- |
+| `/klaim/{token}` | peserta, tanpa login | daftar haknya sendiri + QR untuk ditunjukkan ke petugas |
+| `/pengambilan/t/{token}` | staff, setelah memindai | redirect ke halaman pencatatan penerima itu |
+
+Bedanya bukan hanya tampilan, tapi seberapa banyak yang boleh diberitahu:
+
+- Sisi peserta menjawab **sama** untuk token tidak dikenal, dicabut, dan
+  kedaluwarsa. Membedakannya akan mengubah halaman itu menjadi alat untuk menebak
+  token mana yang ada.
+- Sisi operator menyebut alasannya — dicabut, kedaluwarsa, atau tidak dikenal —
+  beserta waktu dan alasan pencabutan, karena ada orang yang sedang berdiri di
+  meja menunggu jawaban. Operator sudah lolos autentikasi dan memang boleh
+  membaca tabel token.
+
+### Jalur data peserta
+
+`anon` tidak menyentuh tabel mana pun. Halaman peserta hanya memanggil dua fungsi
+`security definer`, `resolve_claim_token()` dan `get_claim_entitlements()`,
+keduanya menyaring pada satu baris token dan **tidak menerima parameter
+beneficiary id** — jadi tidak ada parameter yang bisa dibengkokkan ke arah hak
+orang lain. Keduanya juga menolak token yang dicabut, kedaluwarsa, atau milik
+penerima nonaktif, sehingga penolakan terjadi di database, bukan di aplikasi.
+
+Hasil kedua fungsi itu diparse Zod di `src/lib/domain/claim.ts`, bukan dicast:
+ini satu-satunya permukaan yang dibuka ke pengunjung tanpa akun.
+
+### Pemindaian di browser
+
+Pemindai memakai `BarcodeDetector`, yang ada di Chrome dan Edge tetapi belum di
+Safari dan Firefox. Kamera **hanya menyala setelah operator menekan tombol**, dan
+di sebelahnya selalu ada kolom manual untuk menempel tautan atau token — jadi
+stasiun yang browsernya tidak mendukung, atau yang izin kameranya ditolak, tetap
+bisa bekerja.
+
 ## Idempotensi
 
 `pickup_transactions.idempotency_key` unik secara global. Bila permintaan yang

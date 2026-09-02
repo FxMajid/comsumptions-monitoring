@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { errorState, type ActionState } from "@/lib/actions/result";
+import { EVENT_UTC_OFFSET } from "@/lib/format";
 
 /** Turns a failed parse into the state the form renders. */
 export function invalidState(error: z.ZodError<unknown>): ActionState {
@@ -73,6 +74,11 @@ export const optionalTimeField = z
   .union([z.literal(""), z.string().trim().regex(/^\d{2}:\d{2}(:\d{2})?$/, "Jam tidak sah")])
   .transform((value) => (value === "" ? null : value));
 
+export const dateTimeField = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/, "Waktu wajib diisi");
+
 export const optionalDateTimeField = z
   .union([
     z.literal(""),
@@ -97,3 +103,14 @@ export const optionalIntegerField = z
 export const flagField = z
   .union([z.literal("on"), z.literal("true"), z.null(), z.literal("")])
   .transform((value) => value === "on" || value === "true");
+
+/**
+ * A datetime-local input carries no zone. Without an explicit offset Postgres
+ * would read it in the server's timezone, which is UTC on Supabase, and a 15:00
+ * deadline would land at 22:00 WIB.
+ */
+export function toTimestamptz(value: string): string;
+export function toTimestamptz(value: string | null): string | null;
+export function toTimestamptz(value: string | null): string | null {
+  return value ? `${value}:00${EVENT_UTC_OFFSET}` : null;
+}

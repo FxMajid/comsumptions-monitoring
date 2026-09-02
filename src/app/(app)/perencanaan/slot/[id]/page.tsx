@@ -7,9 +7,16 @@ import {
   createPlan,
   updateSlot,
 } from "@/lib/actions/planning";
+import { generateEntitlements } from "@/lib/actions/entitlement";
+import {
+  BENEFICIARY_CATEGORIES,
+  BENEFICIARY_CATEGORY_LABELS,
+  BENEFICIARY_TYPES,
+  BENEFICIARY_TYPE_LABELS,
+} from "@/lib/domain/beneficiary";
 import { isUuid } from "@/lib/domain/ids";
 import { getActiveEvent } from "@/lib/domain/event";
-import { getConsumptionItems } from "@/lib/domain/master";
+import { getAreas, getConsumptionItems } from "@/lib/domain/master";
 import { getPlanCoverageForSlot, getSlotOverview } from "@/lib/domain/planning";
 import { offeredTransitions } from "@/lib/domain/status";
 import {
@@ -20,6 +27,7 @@ import {
   formatTimeRange,
   toDateTimeInputValue,
 } from "@/lib/format";
+import { EntitlementGeneratorForm } from "@/components/forms/entitlement-generator-form";
 import { PlanForm } from "@/components/forms/plan-form";
 import { SlotForm } from "@/components/forms/slot-form";
 import { StatusActions } from "@/components/forms/status-actions";
@@ -31,6 +39,16 @@ import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 export const metadata: Metadata = { title: "Slot Konsumsi" };
+
+const CATEGORY_OPTIONS: Option[] = BENEFICIARY_CATEGORIES.map((value) => ({
+  value,
+  label: BENEFICIARY_CATEGORY_LABELS[value],
+}));
+
+const BENEFICIARY_TYPE_OPTIONS: Option[] = BENEFICIARY_TYPES.map((value) => ({
+  value,
+  label: BENEFICIARY_TYPE_LABELS[value],
+}));
 
 export default async function SlotDetailPage({
   params,
@@ -51,9 +69,10 @@ export default async function SlotDetailPage({
 
   const event = await getActiveEvent();
 
-  const [plans, items] = await Promise.all([
+  const [plans, items, areas] = await Promise.all([
     getPlanCoverageForSlot(slot.id),
     event ? getConsumptionItems(event.id) : Promise.resolve([]),
+    event ? getAreas(event.id) : Promise.resolve([]),
   ]);
 
   const plannedItemIds = new Set(plans.map((plan) => plan.itemId));
@@ -71,6 +90,19 @@ export default async function SlotDetailPage({
     }));
 
   const openItemCount = itemOptions.filter((option) => !option.disabled).length;
+
+  // The generator picks one item at a time, and an item already planned here is
+  // exactly the normal case — so unlike the plan form, nothing is disabled.
+  const activeItemOptions: Option[] = items
+    .filter((item) => item.isActive)
+    .map((item) => ({
+      value: item.id,
+      label: `${item.code} · ${item.name} (${item.unitOfMeasure})`,
+    }));
+
+  const activeAreaOptions: Option[] = areas
+    .filter((area) => area.isActive)
+    .map((area) => ({ value: area.id, label: `${area.code} · ${area.name}` }));
 
   return (
     <>
@@ -238,6 +270,48 @@ export default async function SlotDetailPage({
                 lockedSlotId={slot.id}
                 submitLabel="Tambah rencana"
               />
+            </Card>
+          )}
+        </div>
+      </Section>
+
+      <Section
+        title="Terbitkan hak konsumsi"
+        description="Membuat baris hak per penerima untuk satu item pada slot ini."
+      >
+        <div className="max-w-3xl">
+          {activeItemOptions.length === 0 ? (
+            <Notice title="Belum ada item aktif">
+              Hak konsumsi terbit per item, jadi tambahkan item lebih dulu di{" "}
+              <Link
+                href="/master"
+                className="text-brand-600 underline-offset-2 hover:underline"
+              >
+                Data Master
+              </Link>
+              .
+            </Notice>
+          ) : (
+            <Card>
+              <EntitlementGeneratorForm
+                action={generateEntitlements.bind(null, slot.id)}
+                items={activeItemOptions}
+                categories={CATEGORY_OPTIONS}
+                types={BENEFICIARY_TYPE_OPTIONS}
+                areas={activeAreaOptions}
+              />
+              <p className="mt-4 text-xs text-ink-muted">
+                Jumlah hak diambil dari kolom porsi tiap penerima, bukan dari
+                rencana slot. Aman dijalankan ulang setelah penerima baru masuk:
+                yang sudah punya hak dilewati, tidak digandakan.{" "}
+                <Link
+                  href="/master/penerima"
+                  className="text-brand-600 underline-offset-2 hover:underline"
+                >
+                  Lihat daftar penerima
+                </Link>
+                .
+              </p>
             </Card>
           )}
         </div>

@@ -25,6 +25,8 @@ export function describeWriteError(
   switch (error.code) {
     case "P0001":
       return errorState(error.message ?? "Perubahan ditolak oleh aturan data.");
+    case "P0002":
+      return errorState("Data yang dituju tidak ditemukan. Muat ulang halaman.");
     case "23505":
       return errorState(
         context.duplicate ?? "Kode itu sudah dipakai pada event ini.",

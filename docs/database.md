@@ -13,6 +13,7 @@ Migrasi dijalankan berurutan:
 | `supabase/migrations/003_budget.sql` | `budgets`, `expenses`, `expense_payments`, view realisasi |
 | `supabase/migrations/004_storage.sql` | bucket privat `receipts` dan policy `storage.objects` |
 | `supabase/migrations/005_status_flow.sql` | aturan transisi status, penjaga hapus baris pesanan, view ringkasan perencanaan dan pesanan |
+| `supabase/migrations/006_pickup_access.sql` | token QR penerima, view `entitlement_overview`, RPC penerbitan hak konsumsi dan pembacaan klaim tanpa akun |
 
 ## Fondasi (001)
 
@@ -136,6 +137,86 @@ View baru, ketiganya `security_invoker = true` dan dicabut dari `anon`:
 - `consumption_request_summaries`: per pesanan — jumlah baris, kuantitas dipesan/
   dikirim/diterima, serta nilai dipesan dan nilai diterima.
 
+## Akses pengambilan & klaim (006)
+
+Dua lubang yang ditinggalkan 002: tidak ada cara menerbitkan hak konsumsi secara
+massal, dan tidak ada cara penerima membuka haknya sendiri padahal ia tidak punya
+akun.
+
+### `beneficiary_access_tokens`
+
+Satu baris per QR yang pernah diterbitkan. Yang dipegang penerima adalah bearer
+secret: siapa pun yang memegang tokennya bisa melihat hak konsumsi penerima itu.
+Karena itu tiga hal dijaga di level schema, bukan di aplikasi:
+
+- **Hanya digest yang disimpan.** `token_hash` dikunci
+  `check (token_hash ~ '^[0-9a-f]{64}$')` — SHA-256 hex. Token mentah muncul
+  sekali saja di layar yang menerbitkannya, lalu hidup di QR. Tabel ini bocor pun
+  tidak menghasilkan QR yang bisa dipakai; konsekuensinya QR yang hilang harus
+  diterbitkan ulang, tidak bisa dicetak ulang.
+- **Masa berlaku wajib.** `expires_at` `not null` plus
+  `check (expires_at > created_at)`. Tautan bertoken tanpa kedaluwarsa akan tetap
+  membuka data peserta lama setelah event bubar.
+- **Satu token hidup per penerima.** Index unik parsial
+  `idx_beneficiary_access_tokens_live on (beneficiary_id) where revoked_at is null`.
+  Mengganti QR berarti mencabut yang lama lebih dulu, jadi lembar yang sudah
+  dicetak tidak pernah diam-diam tetap berlaku berdampingan dengan penggantinya.
+
+`idx_beneficiary_access_tokens_hash` unik penuh, karena pencocokan token adalah
+lookup pada kolom itu. Baca diberikan ke keenam role — operator pengambilan harus
+bisa mencocokkan hash yang baru dipindai — sedangkan tulis (penerbitan dan
+pencabutan) hanya `ADMIN` dan `CONSUMPTION_MANAGER`. Pencabutan menyimpan
+`revoked_at`, `revoked_by`, dan `revocation_reason`; barisnya tidak dihapus.
+
+### `entitlement_overview`
+
+`security_invoker = true`, dicabut dari `anon`. `entitlement_statuses` hanya
+membawa id, sedangkan setiap layar hak konsumsi butuh nama penerima, nama item,
+jam slot, dan batas ambilnya. View ini menggabungkan keempatnya sekali supaya
+halaman operator, halaman penerima, dan RPC klaim membaca angka yang sama.
+
+`expires_at` diambil dari baris `entitlements`, bukan dari slot: batas ambil bisa
+berbeda per hak bila slotnya diubah setelah hak diterbitkan.
+
+### RPC
+
+| Fungsi | Pemanggil | Isi |
+| --- | --- | --- |
+| `generate_entitlements(slot, item, categories, types, area)` | `authenticated` | insert-select satu baris per penerima aktif yang cocok filter |
+| `resolve_claim_token(token_hash)` | `anon`, `authenticated` | satu baris identitas penerima pemegang token |
+| `get_claim_entitlements(token_hash)` | `anon`, `authenticated` | daftar hak konsumsi penerima pemegang token |
+
+`generate_entitlements` dibuat RPC karena isinya insert-select: satu transaksi,
+bukan ratusan bolak-balik HTTP. Ia `assert_consumption_role(['ADMIN',
+'CONSUMPTION_MANAGER'])` lebih dulu, menolak item nonaktif, menolak item dan slot
+dari event berbeda, menolak slot `CLOSED`/`CANCELLED`, lalu mengambil
+`pg_advisory_xact_lock` per `(slot, item)` supaya dua penerbitan bersamaan tidak
+berlomba pada index unik. Idempotensinya datang dari
+`on conflict (event_id, beneficiary_id, consumption_item_id, consumption_slot_id)
+where cancelled_at is null do nothing`: dijalankan ulang setelah penerima baru
+masuk, hanya sisanya yang terbit. Nilainya kembali sebagai
+`{matched, created}` dan tercatat di `audit_logs` beserta filter yang dipakai.
+
+Kuantitas hak mengikuti `beneficiaries.quantity`, bukan porsi rencana slot. Grup
+tidak dipecah menjadi orang fiktif — satu baris hak berisi kuantitas grup — dan
+individu selalu 1 karena dijaga constraint di `beneficiaries`.
+
+Dua fungsi klaim adalah **satu-satunya pintu** untuk pemegang token tanpa akun.
+Keduanya `security definer` dengan `set search_path = public`, karena `anon`
+sengaja tidak punya hak apa pun atas tabel di bawahnya. Yang membuat keduanya
+aman diberikan ke `anon` adalah bentuk parameternya: satu-satunya masukan adalah
+hash token, dan tidak ada parameter id penerima yang bisa diputar untuk melihat
+orang lain. Filternya `revoked_at is null and expires_at > now()`, dan
+`resolve_claim_token` juga menuntut `b.is_active`, jadi penerima yang dinonaktifkan
+langsung kehilangan tautannya.
+
+Keduanya `stable` dan hanya mengembalikan baris, bukan alasan kegagalan. Token
+asing, dicabut, dan kedaluwarsa sama-sama menghasilkan nol baris — halaman
+`/klaim/[token]` tidak bisa dipakai untuk menebak token mana yang ada. Sisi staff
+(`/pengambilan/t/[token]`) memang menyebut alasannya, tetapi itu jalur
+`authenticated` yang membaca tabelnya langsung. Detail kedua rute ada di
+`docs/pickup.md`.
+
 ## Strategi RLS
 
 RLS aktif di seluruh tabel domain dan anggaran.
@@ -168,8 +249,11 @@ lock, posting ledger, dan audit terjadi dalam satu transaksi.
 - **Scoping area belum diimplementasikan.** Tabel `areas` ada dan role
   `AREA_PIC` ada, tetapi tidak ada kolom yang mengikat seorang staff ke satu
   area, sehingga policy `AREA_PIC` saat ini seluas role operasional lain.
-  Menambahkan kolom `profiles.area_id` yang belum dipakai justru menyesatkan,
-  jadi ini dibiarkan terbuka sampai modul pengambilan dibangun.
+  Modul pengambilan sudah berjalan tanpa itu: setiap pencatatan menyimpan
+  `inventory_location_id`, jadi jejaknya tetap jelas, tetapi seorang `AREA_PIC`
+  secara teknis masih bisa mencatat pengambilan di area lain. Mengikat staff ke
+  area butuh kolom baru di `profiles` plus policy per baris di
+  `pickup_transactions`, dan itu belum dikerjakan.
 - Rollup porsi entitlement per slot sudah ada di `consumption_slot_overview`,
   tetapi angka di dashboard masih menghitung **baris** `entitlement_statuses`,
   bukan porsi. Selama satu entitlement bisa berisi lebih dari satu porsi, kedua
@@ -196,6 +280,7 @@ pembayaran DP 20.000.000.
 psql -f supabase/tests/consumption_domain_tests.sql
 psql -f supabase/tests/budget_tests.sql
 psql -f supabase/tests/status_flow_tests.sql
+psql -f supabase/tests/pickup_access_tests.sql
 ```
 
-Keduanya berjalan dalam transaksi dan diakhiri `raise notice` bila lolos.
+Semuanya berjalan dalam transaksi dan diakhiri `raise notice` bila lolos.

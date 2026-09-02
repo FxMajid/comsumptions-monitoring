@@ -23,11 +23,11 @@ import {
   optionalMoneyField,
   optionalTimeField,
   quantityField,
+  toTimestamptz,
 } from "@/lib/actions/validation";
 import { requireActiveEventId } from "@/lib/domain/event";
 import { isUuid } from "@/lib/domain/ids";
 import { changeStatus } from "@/lib/actions/change-status";
-import { EVENT_UTC_OFFSET } from "@/lib/format";
 
 const DUPLICATE_SLOT = "Kode slot itu sudah dipakai pada event ini.";
 const DUPLICATE_PLAN =
@@ -76,15 +76,6 @@ function readPlan(formData: FormData) {
     unitCost: formData.get("unitCost"),
     notes: formData.get("notes"),
   });
-}
-
-/**
- * A datetime-local input carries no zone. Without an explicit offset Postgres
- * would read it in the server's timezone, which is UTC on Supabase, and a 15:00
- * deadline would land at 22:00 WIB.
- */
-function toTimestamptz(value: string | null): string | null {
-  return value ? `${value}:00${EVENT_UTC_OFFSET}` : null;
 }
 
 export async function createSlot(

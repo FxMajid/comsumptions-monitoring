@@ -6,6 +6,12 @@ type FieldShell = {
   label: string;
   hint?: string;
   errors?: string[];
+  /**
+   * The element id, defaulting to the field name. A form rendered once per row
+   * repeats its names, so those instances pass a value from useId() to keep each
+   * label pointing at its own control.
+   */
+  id?: string;
 };
 
 /**
@@ -14,25 +20,31 @@ type FieldShell = {
  * bounced, not just that it did.
  */
 function Shell({
-  name,
+  controlId,
   label,
   hint,
   errors,
   children,
-}: Readonly<FieldShell & { children: React.ReactNode }>) {
+}: Readonly<{
+  controlId: string;
+  label: string;
+  hint?: string;
+  errors?: string[];
+  children: React.ReactNode;
+}>) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={name} className="text-sm font-medium">
+      <label htmlFor={controlId} className="text-sm font-medium">
         {label}
       </label>
       {children}
       {hint ? (
-        <p id={`${name}-hint`} className="text-xs text-ink-muted">
+        <p id={`${controlId}-hint`} className="text-xs text-ink-muted">
           {hint}
         </p>
       ) : null}
       {errors?.length ? (
-        <p id={`${name}-error`} role="alert" className="text-xs text-alert">
+        <p id={`${controlId}-error`} role="alert" className="text-xs text-alert">
           {errors.join(" ")}
         </p>
       ) : null}
@@ -40,8 +52,11 @@ function Shell({
   );
 }
 
-function describedBy(name: string, hint?: string, errors?: string[]) {
-  const ids = [hint ? `${name}-hint` : null, errors?.length ? `${name}-error` : null]
+function describedBy(controlId: string, hint?: string, errors?: string[]) {
+  const ids = [
+    hint ? `${controlId}-hint` : null,
+    errors?.length ? `${controlId}-error` : null,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -53,16 +68,19 @@ export function TextField({
   label,
   hint,
   errors,
+  id,
   ...input
 }: Readonly<FieldShell & Omit<React.ComponentProps<"input">, "name" | "id">>) {
+  const controlId = id ?? name;
+
   return (
-    <Shell name={name} label={label} hint={hint} errors={errors}>
+    <Shell controlId={controlId} label={label} hint={hint} errors={errors}>
       <input
         {...input}
-        id={name}
+        id={controlId}
         name={name}
         aria-invalid={errors?.length ? true : undefined}
-        aria-describedby={describedBy(name, hint, errors)}
+        aria-describedby={describedBy(controlId, hint, errors)}
         className={CONTROL_CLASS}
       />
     </Shell>
@@ -74,17 +92,20 @@ export function SelectField({
   label,
   hint,
   errors,
+  id,
   children,
   ...select
 }: Readonly<FieldShell & Omit<React.ComponentProps<"select">, "name" | "id">>) {
+  const controlId = id ?? name;
+
   return (
-    <Shell name={name} label={label} hint={hint} errors={errors}>
+    <Shell controlId={controlId} label={label} hint={hint} errors={errors}>
       <select
         {...select}
-        id={name}
+        id={controlId}
         name={name}
         aria-invalid={errors?.length ? true : undefined}
-        aria-describedby={describedBy(name, hint, errors)}
+        aria-describedby={describedBy(controlId, hint, errors)}
         className={CONTROL_CLASS}
       >
         {children}
@@ -98,16 +119,19 @@ export function TextAreaField({
   label,
   hint,
   errors,
+  id,
   ...textarea
 }: Readonly<FieldShell & Omit<React.ComponentProps<"textarea">, "name" | "id">>) {
+  const controlId = id ?? name;
+
   return (
-    <Shell name={name} label={label} hint={hint} errors={errors}>
+    <Shell controlId={controlId} label={label} hint={hint} errors={errors}>
       <textarea
         {...textarea}
-        id={name}
+        id={controlId}
         name={name}
         aria-invalid={errors?.length ? true : undefined}
-        aria-describedby={describedBy(name, hint, errors)}
+        aria-describedby={describedBy(controlId, hint, errors)}
         className={`${CONTROL_CLASS} min-h-20 resize-y`}
       />
     </Shell>
@@ -118,26 +142,30 @@ export function CheckboxField({
   name,
   label,
   hint,
+  id,
   ...input
 }: Readonly<
-  Omit<FieldShell, "errors"> & Omit<React.ComponentProps<"input">, "name" | "id" | "type">
+  Omit<FieldShell, "errors"> &
+    Omit<React.ComponentProps<"input">, "name" | "id" | "type">
 >) {
+  const controlId = id ?? name;
+
   return (
     <div className="flex items-start gap-2">
       <input
         {...input}
         type="checkbox"
-        id={name}
+        id={controlId}
         name={name}
-        aria-describedby={hint ? `${name}-hint` : undefined}
+        aria-describedby={hint ? `${controlId}-hint` : undefined}
         className="mt-0.5 size-4 accent-brand-600"
       />
       <div>
-        <label htmlFor={name} className="text-sm font-medium">
+        <label htmlFor={controlId} className="text-sm font-medium">
           {label}
         </label>
         {hint ? (
-          <p id={`${name}-hint`} className="text-xs text-ink-muted">
+          <p id={`${controlId}-hint`} className="text-xs text-ink-muted">
             {hint}
           </p>
         ) : null}
