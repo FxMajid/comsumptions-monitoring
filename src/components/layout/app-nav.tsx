@@ -2,7 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { NavItem } from "@/lib/nav";
+import {
+  Boxes,
+  CalendarDays,
+  Database,
+  LayoutDashboard,
+  Scale,
+  ScanLine,
+  Store,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import type { NavIconName, NavItem } from "@/lib/nav";
+
+/** Turns the serializable names from `@/lib/nav` back into components. */
+const NAV_ICONS: Record<NavIconName, LucideIcon> = {
+  "layout-dashboard": LayoutDashboard,
+  wallet: Wallet,
+  "calendar-days": CalendarDays,
+  store: Store,
+  database: Database,
+  boxes: Boxes,
+  "scan-line": ScanLine,
+  scale: Scale,
+  users: Users,
+};
 
 export function AppNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
@@ -12,7 +37,7 @@ export function AppNav({ items }: { items: NavItem[] }) {
       {items.map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(`${item.href}/`);
-        const Icon = item.icon;
+        const Icon = NAV_ICONS[item.icon];
 
         if (!item.available) {
           return (

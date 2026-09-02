@@ -1,23 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const EVENT_COLUMNS = "id, code, name, event_date, status";
-
-type EventRow = {
-  id: string;
-  code: string | null;
-  name: string;
-  event_date: string | null;
-  status: string;
-};
-
-export type ActiveEvent = {
-  id: string;
-  code: string | null;
-  name: string;
-  eventDate: string | null;
-  status: string;
-};
-
 export type BudgetSummary = {
   allocatedAmount: string;
   invoicedAmount: string;
@@ -39,51 +21,12 @@ export type BudgetRealization = {
   utilizationPercent: string | null;
 };
 
-export type EntitlementCounts = {
-  pending: number;
-  partiallyPicked: number;
-  pickedUp: number;
+export const BUDGET_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draf",
+  ACTIVE: "Aktif",
+  LOCKED: "Terkunci",
+  CANCELLED: "Dibatalkan",
 };
-
-function toActiveEvent(row: EventRow): ActiveEvent {
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    eventDate: row.event_date,
-    status: row.status,
-  };
-}
-
-/**
- * The event every dashboard figure is scoped to: the one flagged active, or the
- * most recent one when nothing is active. Returns null when there are no events,
- * which is also what a signed-in user with no read access sees.
- */
-export async function getActiveEvent(): Promise<ActiveEvent | null> {
-  const supabase = await createSupabaseServerClient();
-
-  const active = await supabase
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle<EventRow>();
-
-  if (active.data) {
-    return toActiveEvent(active.data);
-  }
-
-  const latest = await supabase
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .order("event_date", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<EventRow>();
-
-  return latest.data ? toActiveEvent(latest.data) : null;
-}
 
 export async function getBudgetSummary(eventId: string): Promise<BudgetSummary> {
   const supabase = await createSupabaseServerClient();
@@ -150,28 +93,4 @@ export async function getBudgetRealizations(
     remainingAmount: row.remaining_amount,
     utilizationPercent: row.utilization_percent,
   }));
-}
-
-export async function getEntitlementCounts(
-  eventId: string,
-): Promise<EntitlementCounts> {
-  const supabase = await createSupabaseServerClient();
-
-  async function countByStatus(status: string): Promise<number> {
-    const { count } = await supabase
-      .from("entitlement_statuses")
-      .select("entitlement_id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("status", status);
-
-    return count ?? 0;
-  }
-
-  const [pending, partiallyPicked, pickedUp] = await Promise.all([
-    countByStatus("PENDING"),
-    countByStatus("PARTIALLY_PICKED"),
-    countByStatus("PICKED_UP"),
-  ]);
-
-  return { pending, partiallyPicked, pickedUp };
 }

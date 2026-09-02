@@ -1,22 +1,16 @@
 import type { Metadata } from "next";
 import { requireStaffProfile } from "@/lib/auth/server";
+import { getActiveEvent } from "@/lib/domain/event";
 import {
-  getActiveEvent,
+  BUDGET_STATUS_LABELS,
   getBudgetRealizations,
   getBudgetSummary,
-} from "@/lib/dashboard/queries";
+} from "@/lib/domain/budget";
 import { formatPercent, formatRupiah, toNumber } from "@/lib/format";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata: Metadata = { title: "Anggaran" };
-
-const BUDGET_STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draf",
-  ACTIVE: "Aktif",
-  LOCKED: "Terkunci",
-  CANCELLED: "Dibatalkan",
-};
 
 export default async function AnggaranPage() {
   await requireStaffProfile("/anggaran");

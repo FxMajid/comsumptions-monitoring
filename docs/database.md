@@ -12,6 +12,7 @@ Migrasi dijalankan berurutan:
 | `supabase/migrations/002_consumption_domain.sql` | master data, entitlement, ledger stok, distribusi, pengambilan, rekonsiliasi, audit |
 | `supabase/migrations/003_budget.sql` | `budgets`, `expenses`, `expense_payments`, view realisasi |
 | `supabase/migrations/004_storage.sql` | bucket privat `receipts` dan policy `storage.objects` |
+| `supabase/migrations/005_status_flow.sql` | aturan transisi status, penjaga hapus baris pesanan, view ringkasan perencanaan dan pesanan |
 
 ## Fondasi (001)
 
@@ -84,6 +85,57 @@ bocor bukan berarti dokumennya bocor.
 Migrasi ini dibungkus pengecekan `information_schema.schemata`, jadi aman
 di-skip pada database lokal yang tidak punya schema `storage`.
 
+## Alur status (005)
+
+RLS menentukan **siapa** yang boleh menulis, bukan **nilai apa** yang sah.
+Seorang `CONSUMPTION_MANAGER` memegang publishable key yang dikirim ke browser,
+jadi ia bisa mem-PATCH `status` langsung ke PostgREST tanpa melewati aplikasi.
+Karena itu urutan status dijaga trigger, bukan hanya kode aplikasi.
+
+- `status_transition_allowed(entity, from, to)` — `immutable`, berisi daftar
+  transisi sah untuk `consumption_slots`, `consumption_plans`, dan
+  `consumption_requests`.
+- `enforce_status_transition()` dipasang sebagai trigger
+  `before update ... when (old.status is distinct from new.status)` pada ketiga
+  tabel dan menolak dengan `errcode = 'P0001'`.
+- `src/lib/domain/status.ts` adalah **cerminan** daftar itu untuk kebutuhan UI
+  (label dan tombol yang ditawarkan). Bila daftar SQL berubah, file itu diubah
+  pada commit yang sama.
+
+Beberapa transisi terlihat aneh sampai alasannya jelas:
+
+- `PLANNED > SENT` pada pesanan legal karena `update_request_status()` diakhiri
+  `else status` dan hanya berjalan untuk pesanan di luar `CLOSED`/`CANCELLED`,
+  jadi status `SENT` yang diisi manual tidak ditimpa.
+- `CANCELLED > PLANNED` pada rencana legal karena unik `(event, item, slot)`
+  tidak menyaring status: tanpa jalan kembali, satu rencana yang dibatalkan akan
+  memblokir pembuatan rencana baru untuk kombinasi yang sama selamanya.
+- `PARTIALLY_RECEIVED` dan `RECEIVED` tetap sah di database karena RPC
+  penerimaan yang menuliskannya, tetapi **tidak ditawarkan sebagai tombol**.
+  Keduanya mengikuti jumlah yang benar-benar diterima.
+
+`block_received_request_item_delete()` menolak `delete` pada baris pesanan yang
+`received_quantity > 0`. Menghapus baris yang sudah diterima akan meninggalkan
+transaksi stok tanpa asal: stoknya tetap bertambah, sumbernya hilang.
+
+Sebaliknya, larangan mengubah isi pesanan `CLOSED`/`CANCELLED` **tidak** dibuat
+trigger dan tetap aturan aplikasi (`isRequestOpen()` di
+`src/lib/domain/status.ts`), karena pembalikan penerimaan pada pesanan yang sudah
+ditutup masih harus bisa menulis.
+
+View baru, ketiganya `security_invoker = true` dan dicabut dari `anon`:
+
+- `consumption_slot_overview`: per slot — jumlah rencana aktif, total porsi
+  rencana, dan total porsi entitlement yang sudah terbit (baris `CANCELLED` dan
+  entitlement yang dibatalkan tidak dihitung).
+- `consumption_plan_coverage`: per rencana — dipesan, dikirim, diterima,
+  `unordered_quantity` (rencana dikurangi yang sudah masuk pesanan aktif), dan
+  `planned_amount`. Serapan dicocokkan pada `(event, item, slot)`, **bukan** pada
+  `consumption_plan_id`, karena kolom itu nullable: baris pesanan yang dibuat
+  tanpa menunjuk rencana tetap terhitung sebagai serapan.
+- `consumption_request_summaries`: per pesanan — jumlah baris, kuantitas dipesan/
+  dikirim/diterima, serta nilai dipesan dan nilai diterima.
+
 ## Strategi RLS
 
 RLS aktif di seluruh tabel domain dan anggaran.
@@ -118,8 +170,17 @@ lock, posting ledger, dan audit terjadi dalam satu transaksi.
   area, sehingga policy `AREA_PIC` saat ini seluas role operasional lain.
   Menambahkan kolom `profiles.area_id` yang belum dipakai justru menyesatkan,
   jadi ini dibiarkan terbuka sampai modul pengambilan dibangun.
-- Rollup jumlah porsi (bukan jumlah baris) entitlement belum ada view-nya.
-  Dashboard saat ini menghitung baris.
+- Rollup porsi entitlement per slot sudah ada di `consumption_slot_overview`,
+  tetapi angka di dashboard masih menghitung **baris** `entitlement_statuses`,
+  bukan porsi. Selama satu entitlement bisa berisi lebih dari satu porsi, kedua
+  angka itu berbeda.
+- **`reverse_transaction()` belum menangani `reference_type = 'CONSUMPTION_REQUEST'`.**
+  Fungsi itu mengembalikan status untuk `PICKUP` dan `DISTRIBUTION`, tetapi
+  membalik sebuah penerimaan tidak menurunkan kembali
+  `consumption_request_items.received_quantity` dan tidak menghitung ulang status
+  pesanan. Penyebabnya `receive_consumption()` menyimpan `reference_id` berisi id
+  **pesanan**, bukan id baris pesanan, jadi pembalikan tidak tahu baris mana yang
+  harus dikurangi. Perbaikannya masuk fase gudang.
 
 ## Seed pengembangan
 
@@ -134,6 +195,7 @@ pembayaran DP 20.000.000.
 ```
 psql -f supabase/tests/consumption_domain_tests.sql
 psql -f supabase/tests/budget_tests.sql
+psql -f supabase/tests/status_flow_tests.sql
 ```
 
 Keduanya berjalan dalam transaksi dan diakhiri `raise notice` bila lolos.

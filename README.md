@@ -4,9 +4,11 @@ Website monitoring divisi konsumsi kepanitiaan event: anggaran vs realisasi,
 klaim konsumsi, jadwal & vendor, dan stok. Next.js 16 App Router + Supabase,
 dideploy ke Vercel.
 
-Status: **Fase 0 selesai** — schema + RLS, autentikasi staff, shell aplikasi,
-halaman Dashboard dan Anggaran. Modul perencanaan, vendor, gudang, pengambilan,
-rekonsiliasi, dan pengguna belum dibangun (tampil sebagai "Nanti" di navigasi).
+Status: **Fase 1 selesai** — schema + RLS, autentikasi staff, shell aplikasi,
+Dashboard, Anggaran, dan modul jadwal & vendor: master data (item, area),
+perencanaan (slot dan rencana porsi), serta vendor dan pesanan beserta alur
+statusnya. Modul gudang, pengambilan, rekonsiliasi, dan pengguna belum dibangun
+(tampil sebagai "Nanti" di navigasi).
 
 ## Menjalankan secara lokal
 
@@ -47,6 +49,7 @@ supabase/migrations/001_foundation.sql
 supabase/migrations/002_consumption_domain.sql
 supabase/migrations/003_budget.sql
 supabase/migrations/004_storage.sql
+supabase/migrations/005_status_flow.sql
 ```
 
 Migrasi bersifat append-only: jangan mengedit file yang sudah dijalankan di
@@ -102,13 +105,17 @@ slot, contoh plan/request/entitlement, contoh ledger stok, serta pos anggaran
 ```bash
 psql "$DATABASE_URL" -f supabase/tests/consumption_domain_tests.sql
 psql "$DATABASE_URL" -f supabase/tests/budget_tests.sql
+psql "$DATABASE_URL" -f supabase/tests/status_flow_tests.sql
 ```
 
-Keduanya berjalan dalam transaksi (tidak meninggalkan data) dan diakhiri
+Ketiganya berjalan dalam transaksi (tidak meninggalkan data) dan diakhiri
 `raise notice` bila lolos. Tes domain mencakup penerimaan, transfer, idempotensi
 pengambilan, pengambilan grup sebagian, pembalikan, saldo stok, dan pelanggaran
 constraint. Tes anggaran mencakup transisi status pembayaran, refund negatif,
-rollup pagu, isolasi tagihan yang di-void, dan dua uji constraint negatif.
+rollup pagu, isolasi tagihan yang di-void, dan dua uji constraint negatif. Tes
+alur status mencakup transisi sah dan tidak sah untuk slot, rencana, dan
+pesanan, penolakan hapus baris pesanan yang sudah diterima, serta angka ketiga
+view ringkasan.
 
 ## Deploy ke Vercel
 
@@ -126,14 +133,27 @@ Tambahkan URL deployment ke **Supabase → Authentication → URL Configuration*
 src/app/(app)/         halaman di balik login (shell + navigasi)
 src/app/login/         halaman masuk
 src/components/        UI; komponen client hanya bila perlu
+src/components/forms/  form client yang memakai useActionState
+src/lib/actions/       Server Action: validasi Zod lalu tulis ke Supabase
 src/lib/auth/          peta role→route dan resolusi profil sisi server
-src/lib/dashboard/     query domain, terpisah dari komponen
+src/lib/domain/        query dan aturan domain, terpisah dari komponen
 src/lib/supabase/      client browser dan server (@supabase/ssr)
 src/proxy.ts           Proxy Next 16 (pengganti middleware), cek optimistis
 supabase/migrations/   schema, append-only
 supabase/tests/        tes SQL
 docs/                  spesifikasi database, stok, pengambilan, rekonsiliasi, anggaran
 ```
+
+## Batasan yang diketahui
+
+- **Form kosong lagi setelah submit gagal.** React 19 me-reset field tak
+  terkontrol begitu Server Action selesai, jadi nilai yang tadi diisi tidak
+  bertahan saat server menolak. Yang menahan kesalahan lebih dulu adalah validasi
+  HTML (`required`, `min`, `type`) plus pesan error dari server.
+- **Membalik penerimaan barang belum lengkap.** `reverse_transaction()` belum
+  menangani `reference_type = 'CONSUMPTION_REQUEST'`, jadi pembalikan mengoreksi
+  ledger stok tetapi belum menurunkan `received_quantity` di baris pesanan.
+  Menyusul di modul gudang; detailnya di `docs/database.md`.
 
 ## Model keamanan
 

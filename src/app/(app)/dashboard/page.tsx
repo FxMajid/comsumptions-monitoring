@@ -1,22 +1,14 @@
 import type { Metadata } from "next";
 import { requireStaffProfile } from "@/lib/auth/server";
-import {
-  getActiveEvent,
-  getBudgetSummary,
-  getEntitlementCounts,
-} from "@/lib/dashboard/queries";
+import { EVENT_STATUS_LABELS, getActiveEvent } from "@/lib/domain/event";
+import { getBudgetSummary } from "@/lib/domain/budget";
+import { getEntitlementCounts } from "@/lib/domain/entitlement";
 import { formatDate, formatNumber, formatRupiah, toNumber } from "@/lib/format";
 import { Notice } from "@/components/ui/notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 
 export const metadata: Metadata = { title: "Dashboard" };
-
-const EVENT_STATUS_LABELS: Record<string, string> = {
-  active: "Berjalan",
-  inactive: "Belum aktif",
-  completed: "Selesai",
-};
 
 export default async function DashboardPage() {
   await requireStaffProfile("/dashboard");
