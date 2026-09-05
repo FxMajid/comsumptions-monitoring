@@ -6,11 +6,35 @@
  * never coloured unless the colour carries meaning.
  */
 @theme {
-  --color-brand-50: oklch(0.97 0.02 20);
-  --color-brand-100: oklch(0.93 0.05 20);
-  --color-brand-500: oklch(0.58 0.21 25);
-  --color-brand-600: oklch(0.52 0.21 25);
-  --color-brand-700: oklch(0.45 0.19 25);
+  /*
+   * Geist arrives as a variable font through next/font in the root layout, which
+   * defines these two properties on <html>. The system stack stays behind them
+   * as a fallback for the first paint and for builds that cannot fetch the file.
+   */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /*
+   * The accent is a terracotta red rather than a fire-engine one: warm enough to
+   * sit on a beige ground without vibrating against it, still unmistakably red.
+   * Lightness is set by the job, not by the ramp position — 600 is the only step
+   * that ever carries white text, so it stays dark enough to pass AA there.
+   */
+  --color-brand-50: oklch(0.97 0.014 40);
+  --color-brand-100: oklch(0.93 0.04 38);
+  --color-brand-500: oklch(0.63 0.155 33);
+  --color-brand-600: oklch(0.55 0.17 32);
+  --color-brand-700: oklch(0.46 0.15 32);
+
+  /*
+   * Brand red as text needs a different lightness than brand red as a filled
+   * surface. brand-600 reads at 6.15:1 on the light surface but only 2.74:1 on
+   * the dark one, which fails WCAG AA. Links and eyebrows use this token so the
+   * dark override can lift the text colour without also lifting `bg-brand-600`,
+   * where white text needs the red to stay dark.
+   */
+  --color-brand-text: oklch(0.52 0.16 32);
 
   --color-surface: oklch(0.99 0.002 250);
   --color-surface-raised: oklch(1 0 0);
@@ -19,9 +43,62 @@
   --color-ink: oklch(0.24 0.01 250);
   --color-ink-muted: oklch(0.52 0.012 250);
 
-  --color-ok: oklch(0.62 0.15 150);
-  --color-warn: oklch(0.72 0.15 75);
+  /*
+   * A second, softer surface set for the dashboard, where cards are separated by
+   * fill contrast instead of hairlines: the ground is a shade darker than the
+   * card sitting on it, and `inset` is the well a chip or a track is cut into.
+   * The hue is warm so the beige reads as a chosen neutral, not a grey that
+   * drifted. Pages built on `surface`/`line` are untouched by these.
+   */
+  --color-soft-ground: oklch(0.955 0.004 60);
+  --color-soft-card: oklch(0.981 0.002 60);
+  --color-soft-inset: oklch(0.928 0.005 60);
+  --color-soft-hairline: oklch(0.9 0.005 60);
+  /* The one dark card, which the gauge sits on. */
+  --color-soft-dark: oklch(0.2 0.008 60);
+
+  --radius-soft: 1.75rem;
+  --radius-soft-sm: 1.15rem;
+
+  /*
+   * Measured on surface-raised: the previous amber sat at 2.54:1 and the green
+   * at 3.41:1, both under the 4.5:1 AA floor for the figures and 12px captions
+   * they colour. These land at 5.65:1 while keeping the same hue. alert already
+   * passed at 4.74:1 and is left alone.
+   */
+  --color-ok: oklch(0.5 0.13 150);
+  --color-warn: oklch(0.52 0.12 70);
   --color-alert: oklch(0.58 0.2 25);
+
+  /*
+   * Two categorical hues for charts. They sit apart from both the brand red and
+   * the status colours because neither Internal nor Eksternal is good or bad
+   * news — they are just two groups. Blue against orange stays separable under
+   * deuteranopia and protanopia, which a red/green pair would not.
+   *
+   * chart-gap marks a figure the sheet never filled in. It is drawn as a hatch
+   * rather than a third hue, so a data gap never reads as a third group.
+   */
+  --color-chart-internal: oklch(0.575 0.163 255.5);
+  --color-chart-external: oklch(0.671 0.175 40.6);
+  --color-chart-gap: oklch(0.849 0.01 252.8);
+
+  /*
+   * Shadows carry the ink hue instead of neutral black, so a card lifts off the
+   * page rather than looking smudged. Both tiers imply one light source above.
+   */
+  --shadow-card: 0 1px 2px oklch(0.24 0.01 250 / 0.05),
+    0 1px 3px -1px oklch(0.24 0.01 250 / 0.05);
+  --shadow-panel: 0 1px 2px oklch(0.24 0.01 250 / 0.06),
+    0 8px 20px -6px oklch(0.24 0.01 250 / 0.1);
+
+  /*
+   * The borderless cards need a wider, fainter falloff than `card`: with no
+   * hairline to define the edge, the shadow is the only thing separating a card
+   * from the ground, so it spreads instead of hugging the corner.
+   */
+  --shadow-soft: 0 1px 2px oklch(0.24 0.01 60 / 0.03),
+    0 14px 30px -14px oklch(0.24 0.01 60 / 0.12);
 }
 
 /*
@@ -38,9 +115,30 @@
     --color-ink: oklch(0.95 0.004 250);
     --color-ink-muted: oklch(0.72 0.01 250);
 
+    /* Re-stepped for the dark ground rather than inverted: the card still sits a
+     * shade lighter than the ground, and the well a shade darker. */
+    --color-soft-ground: oklch(0.175 0.006 60);
+    --color-soft-card: oklch(0.218 0.007 60);
+    --color-soft-inset: oklch(0.145 0.005 60);
+    --color-soft-hairline: oklch(0.29 0.008 60);
+    --color-soft-dark: oklch(0.135 0.006 60);
+
+    /* 6.35:1 on surface-raised, against 2.74:1 for the light-mode red. */
+    --color-brand-text: oklch(0.74 0.14 34);
+
     --color-ok: oklch(0.72 0.15 150);
     --color-warn: oklch(0.79 0.14 75);
     --color-alert: oklch(0.68 0.19 25);
+
+    /* Lifted for the dark ground, and re-checked as a pair rather than inverted. */
+    --color-chart-internal: oklch(0.622 0.161 255.1);
+    --color-chart-external: oklch(0.622 0.173 40.1);
+    --color-chart-gap: oklch(0.425 0.012 252.9);
+
+    /* A tinted shadow disappears on a dark ground; these need real black. */
+    --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4);
+    --shadow-panel: 0 1px 2px oklch(0 0 0 / 0.45), 0 8px 20px -6px oklch(0 0 0 / 0.5);
+    --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.35), 0 14px 30px -14px oklch(0 0 0 / 0.55);
   }
 }
 
@@ -53,7 +151,54 @@ body {
   color: var(--color-ink);
 }
 
-/* Tabular figures keep column-aligned rupiah and quantities from jittering. */
+@layer base {
+  /*
+   * One visible focus ring for the whole app, in the base layer so a component
+   * that needs a different colour can still override it with a utility. The
+   * offset puts the ring outside a filled button, where it stays legible.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+
+/* brand-100 and brand-700 are not overridden per scheme, so this pairing stays
+ * legible in both. */
+::selection {
+  background-color: var(--color-brand-100);
+  color: var(--color-brand-700);
+}
+
+/*
+ * Tabular figures keep column-aligned rupiah and quantities from jittering. The
+ * slight negative tracking closes the gap tabular spacing opens in long amounts.
+ */
 .numeric {
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * The fill for a figure the source sheet left blank. Hatching says "no value
+ * recorded" without spending a fourth hue that would read as another group.
+ */
+.hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-chart-gap) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+/* Skeletons and hover transitions are the only motion here; honour the setting
+ * rather than animating anyway. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -127,3 +127,17 @@ export function toDateTimeInputValue(value: string | null | undefined): string {
 
   return `${lookup("year")}-${lookup("month")}-${lookup("day")}T${hour}:${lookup("minute")}`;
 }
+
+const PERCENT_ONE_DECIMAL = new Intl.NumberFormat("id-ID", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/**
+ * A share pinned to one decimal. The locale default drops trailing zeros, so
+ * "20%" and "19,2%" render at different widths and the figure jumps between
+ * refreshes; this keeps it steady.
+ */
+export function formatShare(value: string | number | null | undefined): string {
+  return `${PERCENT_ONE_DECIMAL.format(toNumber(value))}%`;
+}

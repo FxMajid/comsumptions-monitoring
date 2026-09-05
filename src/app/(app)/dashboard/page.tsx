@@ -1,33 +1,56 @@
 import type { Metadata } from "next";
+import { CalendarPlus } from "lucide-react";
+import { canAccessPath } from "@/lib/auth/roles";
 import { requireStaffProfile } from "@/lib/auth/server";
-import { EVENT_STATUS_LABELS, getActiveEvent } from "@/lib/domain/event";
+import { getActiveEvent } from "@/lib/domain/event";
 import { getBudgetSummary } from "@/lib/domain/budget";
-import { getEntitlementCounts } from "@/lib/domain/entitlement";
-import { formatDate, formatNumber, formatRupiah, toNumber } from "@/lib/format";
-import { Notice } from "@/components/ui/notice";
-import { PageHeader } from "@/components/ui/page-header";
-import { StatCard } from "@/components/ui/stat-card";
+import {
+  getEntitlementCounts,
+  toEntitlementDistribution,
+} from "@/lib/domain/entitlement";
+import { IconChip, PillLink } from "@/components/ui/soft";
+import { Ringkasan } from "@/components/dashboard/ringkasan";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
+/**
+ * The page is only the data boundary: authenticate, read the three event-scoped
+ * figures, and hand them to `Ringkasan`, which owns the whole composition. The
+ * role never crosses into the component — it is resolved into link permissions
+ * here, where the access contract lives.
+ */
 export default async function DashboardPage() {
-  await requireStaffProfile("/dashboard");
-
+  const profile = await requireStaffProfile("/dashboard");
   const event = await getActiveEvent();
 
   if (!event) {
     return (
-      <>
-        <PageHeader
-          title="Dashboard"
-          description="Ringkasan anggaran dan distribusi konsumsi."
-        />
-        <Notice title="Belum ada event">
-          Tambahkan baris di tabel <code>events</code> dan tandai satu event
-          dengan status <code>active</code>. Semua angka di dashboard dihitung
-          per event.
-        </Notice>
-      </>
+      <div className="rounded-soft bg-soft-ground p-4 sm:p-6">
+        <div className="mx-auto max-w-xl rounded-soft bg-soft-card p-8 text-center shadow-soft">
+          <div className="flex justify-center">
+            <IconChip>
+              <CalendarPlus aria-hidden="true" className="size-5" />
+            </IconChip>
+          </div>
+          <h1 className="mt-4 text-lg font-semibold tracking-tight">
+            Belum ada event
+          </h1>
+          <p className="mx-auto mt-2 max-w-prose text-sm text-pretty text-ink-muted">
+            Setiap angka di halaman ini dihitung per event, jadi tidak ada yang
+            bisa ditampilkan sampai ada satu. Tambahkan satu baris di tabel{" "}
+            <code className="font-mono">events</code>, lalu tandai statusnya{" "}
+            <code className="font-mono">active</code>.
+          </p>
+          {/* The committee estimate needs no event row, so it stays reachable. */}
+          {canAccessPath("/panitia", profile.role) ? (
+            <div className="mt-5 flex justify-center">
+              <PillLink href="/panitia" tone="ink" arrow>
+                Buka ancar-ancar panitia
+              </PillLink>
+            </div>
+          ) : null}
+        </div>
+      </div>
     );
   }
 
@@ -36,100 +59,17 @@ export default async function DashboardPage() {
     getEntitlementCounts(event.id),
   ]);
 
-  const allocated = toNumber(budget.allocatedAmount);
-  const invoiced = toNumber(budget.invoicedAmount);
-  const outstanding = toNumber(budget.outstandingAmount);
-  const remaining = toNumber(budget.remainingAmount);
-  const utilization = allocated === 0 ? null : (invoiced / allocated) * 100;
-
-  const totalEntitlements =
-    entitlements.pending + entitlements.partiallyPicked + entitlements.pickedUp;
-
   return (
-    <>
-      <PageHeader
-        title="Dashboard"
-        description="Ringkasan anggaran dan distribusi konsumsi."
-        meta={
-          <span>
-            {event.code ? `${event.code} · ` : ""}
-            {event.name} · {formatDate(event.eventDate)} ·{" "}
-            {EVENT_STATUS_LABELS[event.status] ?? event.status}
-          </span>
-        }
-      />
-
-      <section aria-labelledby="ringkasan-anggaran">
-        <h2 id="ringkasan-anggaran" className="mb-3 text-sm font-semibold">
-          Anggaran
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Pagu"
-            value={formatRupiah(budget.allocatedAmount)}
-            hint="Total alokasi anggaran event ini"
-          />
-          <StatCard
-            label="Tagihan masuk"
-            value={formatRupiah(budget.invoicedAmount)}
-            hint={
-              utilization === null
-                ? "Pagu belum diisi"
-                : `${utilization.toFixed(2)}% dari pagu`
-            }
-          />
-          <StatCard
-            label="Sudah dibayar"
-            value={formatRupiah(budget.paidAmount)}
-            hint="Kas yang benar-benar keluar"
-          />
-          <StatCard
-            label="Belum dibayar"
-            value={formatRupiah(budget.outstandingAmount)}
-            hint="Utang ke vendor"
-            tone={outstanding > 0 ? "warn" : "neutral"}
-          />
-        </div>
-        <div className="mt-3">
-          <StatCard
-            label="Sisa pagu"
-            value={formatRupiah(budget.remainingAmount)}
-            hint="Pagu dikurangi tagihan yang sudah masuk"
-            tone={remaining < 0 ? "alert" : "ok"}
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="ringkasan-klaim" className="mt-8">
-        <h2 id="ringkasan-klaim" className="mb-3 text-sm font-semibold">
-          Klaim konsumsi
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Total hak konsumsi"
-            value={formatNumber(totalEntitlements)}
-            hint="Baris entitlement pada event ini"
-          />
-          <StatCard
-            label="Belum diambil"
-            value={formatNumber(entitlements.pending)}
-            tone={entitlements.pending > 0 ? "warn" : "neutral"}
-          />
-          <StatCard
-            label="Sebagian diambil"
-            value={formatNumber(entitlements.partiallyPicked)}
-          />
-          <StatCard
-            label="Selesai diambil"
-            value={formatNumber(entitlements.pickedUp)}
-            tone={entitlements.pickedUp > 0 ? "ok" : "neutral"}
-          />
-        </div>
-        <p className="mt-3 text-xs text-ink-muted">
-          Angka klaim menghitung baris entitlement, bukan jumlah porsi. Rollup
-          per porsi menyusul bersama modul pengambilan.
-        </p>
-      </section>
-    </>
+    <Ringkasan
+      event={event}
+      budget={budget}
+      distribution={toEntitlementDistribution(entitlements)}
+      links={{
+        anggaran: canAccessPath("/anggaran", profile.role),
+        vendor: canAccessPath("/vendor", profile.role),
+        pengambilan: canAccessPath("/pengambilan", profile.role),
+        panitia: canAccessPath("/panitia", profile.role),
+      }}
+    />
   );
 }

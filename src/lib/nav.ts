@@ -9,6 +9,7 @@ import type { StaffRole } from "@/types/staff";
  */
 export type NavIconName =
   | "layout-dashboard"
+  | "clipboard-list"
   | "wallet"
   | "calendar-days"
   | "store"
@@ -28,6 +29,12 @@ export type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "layout-dashboard", available: true },
+  {
+    href: "/panitia",
+    label: "Ancar-ancar Panitia",
+    icon: "clipboard-list",
+    available: true,
+  },
   { href: "/anggaran", label: "Anggaran", icon: "wallet", available: true },
   { href: "/perencanaan", label: "Perencanaan", icon: "calendar-days", available: true },
   { href: "/vendor", label: "Vendor & Pesanan", icon: "store", available: true },

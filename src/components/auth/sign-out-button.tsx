@@ -27,7 +27,7 @@ export function SignOutButton() {
       type="button"
       onClick={handleSignOut}
       disabled={isPending}
-      className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm font-medium transition hover:bg-surface-sunken disabled:opacity-50"
+      className="inline-flex items-center gap-2 rounded-full border border-soft-hairline px-3 py-1.5 text-sm font-medium transition hover:bg-soft-card disabled:opacity-50"
     >
       <LogOut aria-hidden="true" className="size-4" />
       {isPending ? "Keluar…" : "Keluar"}

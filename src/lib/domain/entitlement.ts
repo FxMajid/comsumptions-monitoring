@@ -206,3 +206,45 @@ export async function getEntitlement(id: string): Promise<EntitlementView | null
 
   return data ? toEntitlementView(data) : null;
 }
+
+export type EntitlementShare = {
+  status: EntitlementStatus;
+  label: string;
+  tone: StatusTone;
+  count: number;
+  /** Share of the counted rows. 0 when there is nothing to divide. */
+  percent: number;
+};
+
+export type EntitlementDistribution = {
+  total: number;
+  shares: EntitlementShare[];
+};
+
+/**
+ * Turns the three pickup counts into shares of their own total, in pickup order.
+ * Only the statuses getEntitlementCounts returns are included, so the shares add
+ * up to 100 rather than to some fraction of every status the table can hold.
+ */
+export function toEntitlementDistribution(
+  counts: EntitlementCounts,
+): EntitlementDistribution {
+  const ordered: Array<{ status: EntitlementStatus; count: number }> = [
+    { status: "PENDING", count: counts.pending },
+    { status: "PARTIALLY_PICKED", count: counts.partiallyPicked },
+    { status: "PICKED_UP", count: counts.pickedUp },
+  ];
+
+  const total = ordered.reduce((sum, row) => sum + row.count, 0);
+
+  return {
+    total,
+    shares: ordered.map((row) => ({
+      status: row.status,
+      label: ENTITLEMENT_STATUS_LABELS[row.status],
+      tone: entitlementStatusTone(row.status),
+      count: row.count,
+      percent: total === 0 ? 0 : (row.count / total) * 100,
+    })),
+  };
+}

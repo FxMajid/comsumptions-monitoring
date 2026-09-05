@@ -23,6 +23,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The CommonJS aggregator behind the first standalone build of the panitia
+    // dashboard. It is superseded by generate.mjs, which stays linted; this one
+    // is kept only so that build is reproducible, and is never part of the app.
+    "docs/konsumsi-panitia/parse.js",
   ]),
 ]);
 

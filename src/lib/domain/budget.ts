@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { toNumber } from "@/lib/format";
 
 export type BudgetSummary = {
   allocatedAmount: string;
@@ -93,4 +94,18 @@ export async function getBudgetRealizations(
     remainingAmount: row.remaining_amount,
     utilizationPercent: row.utilization_percent,
   }));
+}
+
+/**
+ * Share of the pagu already invoiced. Null when there is no pagu to measure
+ * against, which is a different statement from 0%.
+ */
+export function budgetUtilizationPercent(summary: BudgetSummary): number | null {
+  const allocated = toNumber(summary.allocatedAmount);
+
+  if (allocated === 0) {
+    return null;
+  }
+
+  return (toNumber(summary.invoicedAmount) / allocated) * 100;
 }

@@ -1,19 +1,27 @@
 export function Section({
+  id,
   title,
   description,
   action,
   children,
 }: Readonly<{
+  /** Names the region from its own heading, so a screen reader announces which
+   *  section it entered rather than an unlabelled group. */
+  id?: string;
   title: string;
   description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
 }>) {
+  const headingId = id ? `${id}-judul` : undefined;
+
   return (
-    <section className="mb-8">
+    <section className="mb-8" aria-labelledby={headingId}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+          <h2 id={headingId} className="text-lg font-semibold tracking-tight">
+            {title}
+          </h2>
           {description ? (
             <p className="mt-0.5 text-sm text-ink-muted">{description}</p>
           ) : null}

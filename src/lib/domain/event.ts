@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { EVENT_TIME_ZONE } from "@/lib/format";
+import type { StatusTone } from "@/lib/domain/status";
 
 const EVENT_COLUMNS = "id, code, name, event_date, status";
 
@@ -72,4 +74,48 @@ export async function requireActiveEventId(): Promise<string | null> {
   const event = await getActiveEvent();
 
   return event?.id ?? null;
+}
+
+const EVENT_STATUS_TONES: Record<string, StatusTone> = {
+  active: "ok",
+  inactive: "warn",
+  completed: "neutral",
+};
+
+/**
+ * Amber for `inactive` is deliberate. getActiveEvent falls back to the most
+ * recent event when nothing is flagged active, and a reader deserves to see
+ * that the figures come from the fallback rather than from a running event.
+ */
+export function eventStatusTone(status: string): StatusTone {
+  return EVENT_STATUS_TONES[status] ?? "neutral";
+}
+
+const DAY_MS = 86_400_000;
+
+const JAKARTA_DAY = new Intl.DateTimeFormat("en-CA", {
+  timeZone: EVENT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * Whole days from today to the event, negative once it has passed and null when
+ * no date is set.
+ *
+ * Both ends are reduced to a calendar day in Jakarta before subtracting, so the
+ * countdown does not change with the server's region or the time of day: a
+ * timezone-naive diff between two instants would report a different number of
+ * days depending on which side of midnight UTC the request landed.
+ */
+export function daysUntilEvent(eventDate: string | null): number | null {
+  if (!eventDate) {
+    return null;
+  }
+
+  const target = Date.parse(`${eventDate.slice(0, 10)}T00:00:00Z`);
+  const today = Date.parse(`${JAKARTA_DAY.format(new Date())}T00:00:00Z`);
+
+  return Number.isNaN(target) ? null : Math.round((target - today) / DAY_MS);
 }

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Boxes,
   CalendarDays,
+  ClipboardList,
   Database,
   LayoutDashboard,
   Scale,
@@ -19,6 +20,7 @@ import type { NavIconName, NavItem } from "@/lib/nav";
 /** Turns the serializable names from `@/lib/nav` back into components. */
 const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   "layout-dashboard": LayoutDashboard,
+  "clipboard-list": ClipboardList,
   wallet: Wallet,
   "calendar-days": CalendarDays,
   store: Store,
@@ -45,11 +47,11 @@ export function AppNav({ items }: { items: NavItem[] }) {
               key={item.href}
               aria-disabled="true"
               title="Belum tersedia"
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-ink-muted/60"
+              className="flex items-center gap-2.5 rounded-full px-3 py-2 text-sm text-ink-muted/60"
             >
               <Icon aria-hidden="true" className="size-4 shrink-0" />
               <span className="truncate">{item.label}</span>
-              <span className="ml-auto rounded border border-line px-1.5 py-0.5 text-[10px] font-medium uppercase">
+              <span className="ml-auto rounded-full border border-soft-hairline px-1.5 py-0.5 text-[10px] font-medium uppercase">
                 Nanti
               </span>
             </span>
@@ -63,8 +65,8 @@ export function AppNav({ items }: { items: NavItem[] }) {
             aria-current={isActive ? "page" : undefined}
             className={
               isActive
-                ? "flex items-center gap-2.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
-                : "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-surface-sunken"
+                ? "flex items-center gap-2.5 rounded-full bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
+                : "flex items-center gap-2.5 rounded-full px-3 py-2 text-sm font-medium transition hover:bg-soft-card"
             }
           >
             <Icon aria-hidden="true" className="size-4 shrink-0" />

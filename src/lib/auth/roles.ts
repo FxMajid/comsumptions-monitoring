@@ -11,6 +11,7 @@ const ALL_ROLES: StaffRole[] = [...STAFF_ROLES];
  */
 const ROUTE_ROLES: Array<{ path: string; roles: StaffRole[] }> = [
   { path: "/dashboard", roles: ALL_ROLES },
+  { path: "/panitia", roles: ALL_ROLES },
   { path: "/anggaran", roles: ["ADMIN", "CONSUMPTION_MANAGER", "MANAGEMENT"] },
   { path: "/perencanaan", roles: ["ADMIN", "CONSUMPTION_MANAGER"] },
   { path: "/vendor", roles: ["ADMIN", "CONSUMPTION_MANAGER"] },
