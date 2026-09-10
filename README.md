@@ -15,6 +15,13 @@ konsumsi massal per slot, token QR per penerima, halaman operator (pindai atau
 cari, lalu catat), dan satu halaman tanpa login tempat penerima melihat haknya
 sendiri lewat tautan bertoken.
 
+Roster panitia diperbarui admin melalui `/panitia/impor`: unggahan CSV membuat
+pratinjau persisten, lalu perubahan baru diterapkan setelah dikonfirmasi. Impor
+bersifat upsert dan tidak menghapus penerima yang absen dari file. Template hasil
+ekspor membawa `ID PENERIMA` stabil untuk pembaruan berikutnya. Alur ini hanya
+memperbarui roster perencanaan—hak konsumsi, QR, klaim, stok, dan anggaran tidak
+dibuat atau diubah.
+
 Modul gudang, rekonsiliasi, dan pengguna belum dibangun (tampil sebagai "Nanti"
 di navigasi).
 
@@ -74,6 +81,7 @@ supabase/migrations/003_budget.sql
 supabase/migrations/004_storage.sql
 supabase/migrations/005_status_flow.sql
 supabase/migrations/006_pickup_access.sql
+supabase/migrations/007_panitia_roster_import.sql
 ```
 
 Migrasi bersifat append-only: jangan mengedit file yang sudah dijalankan di
@@ -158,6 +166,7 @@ psql "$DATABASE_URL" -f supabase/tests/consumption_domain_tests.sql
 psql "$DATABASE_URL" -f supabase/tests/budget_tests.sql
 psql "$DATABASE_URL" -f supabase/tests/status_flow_tests.sql
 psql "$DATABASE_URL" -f supabase/tests/pickup_access_tests.sql
+psql "$DATABASE_URL" -f supabase/tests/panitia_import_tests.sql
 ```
 
 Keempatnya berjalan dalam transaksi (tidak meninggalkan data) dan diakhiri

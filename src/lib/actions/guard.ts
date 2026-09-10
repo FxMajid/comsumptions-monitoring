@@ -6,6 +6,8 @@ import type { StaffProfile, StaffRole } from "@/types/staff";
  * policy means a rejected write shows a readable message instead of an opaque
  * row level security error.
  */
+export const ADMIN_ROLES: StaffRole[] = ["ADMIN"];
+
 export const MANAGER_ROLES: StaffRole[] = ["ADMIN", "CONSUMPTION_MANAGER"];
 
 export const WAREHOUSE_ROLES: StaffRole[] = [
@@ -32,6 +34,10 @@ export async function getProfileForRoles(
   const profile = await getStaffProfile();
 
   return profile && roles.includes(profile.role) ? profile : null;
+}
+
+export async function getAdminProfile(): Promise<StaffProfile | null> {
+  return getProfileForRoles(ADMIN_ROLES);
 }
 
 export async function getManagerProfile(): Promise<StaffProfile | null> {

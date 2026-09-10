@@ -79,9 +79,8 @@ export function AttendanceKey() {
 }
 
 /**
- * All 122 sheet rows, filtered in the browser. The whole set is small enough to
- * ship, and a committee member looking for one name should not wait on a round
- * trip for every keystroke.
+ * Roster rows, filtered in the browser. The expected committee roster is small
+ * enough to ship, so looking for one name does not require a round trip.
  */
 export function RincianBaris({ rows }: Readonly<{ rows: PanitiaRow[] }>) {
   const [query, setQuery] = useState("");
@@ -209,7 +208,7 @@ export function RincianBaris({ rows }: Readonly<{ rows: PanitiaRow[] }>) {
           </tr>
         ) : (
           shown.map((row) => (
-            <tr key={row.no} className="border-t border-line align-top">
+            <tr key={row.id ?? row.no} className="border-t border-line align-top">
               <td className="numeric px-3 py-2.5 text-right text-ink-muted">
                 {row.no}
               </td>

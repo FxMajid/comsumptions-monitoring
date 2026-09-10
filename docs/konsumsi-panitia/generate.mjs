@@ -1,4 +1,8 @@
-// Turns the committee sheet into src/lib/data/panitia-rows.ts.
+// OBSOLETE: this generator is retained only to reproduce the historical fixture.
+// Runtime roster data now comes from the database and is updated through
+// /panitia/impor. Do not use this script to update the application roster.
+//
+// Turns the historical committee sheet into src/lib/data/panitia-rows.ts.
 //
 // Run from this folder after replacing panitia.csv with a fresh export:
 //

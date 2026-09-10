@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireStaffProfile } from "@/lib/auth/server";
-import { PANITIA_ROWS } from "@/lib/data/panitia-rows";
+import { getActiveEvent } from "@/lib/domain/event";
+import { getPanitiaRoster } from "@/lib/domain/panitia-roster";
 import {
   PANITIA_SLOTS,
   VOUCHER_RATE,
@@ -13,8 +15,14 @@ import {
   totalPorsiOf,
   worstPickupSlot,
 } from "@/lib/domain/panitia";
-import { formatNumber, formatRupiah, formatShare } from "@/lib/format";
+import {
+  formatDateTime,
+  formatNumber,
+  formatRupiah,
+  formatShare,
+} from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
+import { Notice } from "@/components/ui/notice";
 import { Section, TableShell } from "@/components/ui/section";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/status-badge";
@@ -29,14 +37,41 @@ import { AttendanceKey, RincianBaris } from "@/components/panitia/rincian-baris"
 
 export const metadata: Metadata = { title: "Ancar-ancar Panitia" };
 
-const SOURCE_FILE = "ancer ancer budget UPDATE-panitia in dan exs.csv";
-
 export default async function PanitiaPage() {
-  await requireStaffProfile("/panitia");
+  const profile = await requireStaffProfile("/panitia");
+  const event = await getActiveEvent();
+  const roster = event ? await getPanitiaRoster(event.id, profile.role === "ADMIN") : null;
+  const rows = roster?.rows ?? [];
+  const latestImport = roster?.latestImport ?? null;
 
-  // Everything on this page comes from one in-repo file, so there is nothing to
-  // await and nothing that can fail: no event, no query, no empty state.
-  const rows = PANITIA_ROWS;
+  if (!event || rows.length === 0) {
+    return (
+      <>
+        <PageHeader
+          title="Ancar-ancar Konsumsi Panitia"
+          description="Perkiraan porsi dan biaya konsumsi panitia Honda Bikers Day 2026 dari roster yang tersimpan di database."
+          meta={
+            profile.role === "ADMIN" ? (
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                <Link href="/panitia/impor" className="font-medium text-brand-600 hover:underline">
+                  Impor roster
+                </Link>
+                <Link href="/panitia/impor/template" className="font-medium text-brand-600 hover:underline">
+                  Unduh template
+                </Link>
+              </div>
+            ) : null
+          }
+        />
+        <Notice title={event ? "Roster panitia masih kosong" : "Belum ada event"}>
+          {event
+            ? "Belum ada roster yang diterapkan untuk event ini. Minta admin mengimpor roster panitia agar perhitungan dapat ditampilkan."
+            : "Tambahkan atau aktifkan event sebelum menampilkan roster panitia."}
+        </Notice>
+      </>
+    );
+  }
+
   const summary = summarizePanitia(rows);
   const breakdowns = slotBreakdowns(rows);
   const pickups = pickupMatrix(rows);
@@ -54,18 +89,32 @@ export default async function PanitiaPage() {
     <>
       <PageHeader
         title="Ancar-ancar Konsumsi Panitia"
-        description="Perkiraan porsi dan biaya konsumsi panitia Honda Bikers Day 2026, dihitung ulang dari file ancar-ancar. Angka di sini belum menjadi hak konsumsi di database, jadi belum ada QR yang bisa diklaim."
+        description={`Perkiraan porsi dan biaya konsumsi panitia ${event.name}, dihitung dari roster aktif di database. Angka di sini belum menjadi hak konsumsi, jadi belum ada QR yang bisa diklaim.`}
         meta={
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="rounded-md border border-line bg-surface-sunken px-1.5 py-0.5 font-mono text-xs">
-              {SOURCE_FILE}
-            </span>
-            <span>{formatNumber(summary.rows)} baris</span>
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+            {latestImport ? (
+              <span>
+                Impor terakhir {formatDateTime(latestImport.appliedAt)} ·{" "}
+                {formatNumber(latestImport.rowCount)} baris
+              </span>
+            ) : (
+              <span>Belum ada metadata impor yang dapat dilihat</span>
+            )}
             <Badge tone={warnings > 0 ? "warn" : "ok"}>
               {warnings > 0
                 ? `${formatNumber(warnings)} hal perlu dibereskan`
                 : "Data sudah bersih"}
             </Badge>
+            {profile.role === "ADMIN" ? (
+              <>
+                <Link href="/panitia/impor" className="font-medium text-brand-600 hover:underline">
+                  Impor roster
+                </Link>
+                <Link href="/panitia/impor/template" className="font-medium text-brand-600 hover:underline">
+                  Unduh template
+                </Link>
+              </>
+            ) : null}
           </div>
         }
       />
@@ -218,7 +267,7 @@ export default async function PanitiaPage() {
               const share = (porsi / summary.totalPorsi) * 100;
 
               return (
-                <tr key={row.no} className="border-t border-line">
+                <tr key={row.id ?? row.no} className="border-t border-line">
                   <th scope="row" className="px-4 py-2.5 text-left font-medium">
                     {row.nama}
                     <span className="mt-0.5 block text-xs font-normal text-ink-muted">

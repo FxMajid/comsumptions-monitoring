@@ -1,7 +1,6 @@
 /**
- * The committee consumption estimate ("ancar-ancar") that the spreadsheet holds
- * before any of it exists in the database. Every figure on /panitia is derived
- * here from `PANITIA_ROWS` so the page itself only arranges the result.
+ * The committee consumption estimate ("ancar-ancar"). Every figure on /panitia
+ * is derived here from the live roster rows, so the page only arranges the result.
  *
  * A row is one person or one whole block — "Panitia Community" carries 50 people
  * on a single line — which is why quantities are summed rather than counted.
@@ -28,6 +27,8 @@ export type PanitiaKategori = "Internal" | "Eksternal" | "Kosong";
 export type PanitiaAttendance = "hadir" | "tidak" | "kosong";
 
 export type PanitiaRow = {
+  /** Stable database identifier; absent only on the legacy in-repo snapshot. */
+  id?: string;
   no: number;
   nama: string;
   peran: string;
