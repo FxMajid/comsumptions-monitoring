@@ -35,6 +35,7 @@ export type PanitiaImportRecord = {
   attendance: PanitiaImportSlots;
   activities: PanitiaImportActivities;
   areaId: string | null;
+  areaLabel: string | null;
 };
 
 export type PanitiaValidationIssue = {
@@ -77,6 +78,7 @@ export const PanitiaImportRecordSchema = z.object({
   attendance: z.record(SlotKeySchema, z.enum(PANITIA_ATTENDANCE_VALUES)),
   activities: z.partialRecord(SlotKeySchema, z.string().min(1).max(1000)),
   areaId: z.string().min(1).nullable(),
+  areaLabel: z.string().min(1).max(120).nullable(),
 });
 
 export function parseOrigin(value: string): PanitiaImportOrigin | null {

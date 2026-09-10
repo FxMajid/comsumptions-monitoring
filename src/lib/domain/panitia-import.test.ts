@@ -26,6 +26,7 @@ function imported(overrides: Partial<PanitiaImportRecord> = {}): PanitiaImportRe
     },
     activities: {},
     areaId: "area-1",
+    areaLabel: "ZONE-1",
     ...overrides,
   };
 }

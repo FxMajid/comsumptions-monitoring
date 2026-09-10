@@ -111,20 +111,18 @@ function resolveArea(
   rowNumber: number,
   areaIndex: ReturnType<typeof buildAreaIndex>,
   issues: PanitiaValidationIssue[],
-): string | null {
+): Pick<PanitiaImportRecord, "areaId" | "areaLabel"> {
   const label = normalizedImportText(value);
-  if (label === "") return null;
+  if (label === "") return { areaId: null, areaLabel: null };
   const key = normalizeKey(label);
   if (areaIndex.duplicateKeys.has(key)) {
     issues.push(issue(rowNumber, "AREA", `Area "${label}" ambigu; gunakan ID atau kode area yang unik`));
-    return null;
+    return { areaId: null, areaLabel: label };
   }
-  const areaId = areaIndex.values.get(key);
-  if (!areaId) {
-    issues.push(issue(rowNumber, "AREA", `Area "${label}" tidak ditemukan pada snapshot`));
-    return null;
-  }
-  return areaId;
+  return {
+    areaId: areaIndex.values.get(key) ?? null,
+    areaLabel: label,
+  };
 }
 
 function collectZodIssues(raw: RawRecord, rowNumber: number, issues: PanitiaValidationIssue[]): PanitiaImportRecord | null {
@@ -164,6 +162,7 @@ function parseCommon(
     }
   }
 
+  const resolvedArea = resolveArea(areaValue, rowNumber, areaIndex, issues);
   const raw: RawRecord = {
     rowNumber,
     stableId: stableIdColumn === null ? null : normalizedNullableImportText(row[stableIdColumn] ?? ""),
@@ -179,7 +178,7 @@ function parseCommon(
     eats,
     attendance,
     activities,
-    areaId: resolveArea(areaValue, rowNumber, areaIndex, issues),
+    ...resolvedArea,
   };
   if (quantity === null || origin === null || eats === null || Object.keys(attendance).length !== PANITIA_IMPORT_SLOTS.length) return null;
   return collectZodIssues(raw, rowNumber, issues);

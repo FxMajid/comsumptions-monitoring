@@ -83,7 +83,9 @@ function toRpcRecord(
     quantity: record.quantity,
     origin: record.origin,
     meal_eligible: record.eats,
-    area: record.areaId ? areaCodeById.get(record.areaId) ?? null : null,
+    area: record.areaId
+      ? areaCodeById.get(record.areaId) ?? record.areaLabel
+      : record.areaLabel,
     slots: Object.fromEntries(
       Object.entries(SLOT_KEYS).map(([clientKey, databaseKey]) => {
         const key = clientKey as keyof typeof SLOT_KEYS;

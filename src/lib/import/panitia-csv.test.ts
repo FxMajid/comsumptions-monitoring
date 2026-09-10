@@ -60,7 +60,11 @@ describe("importPanitiaCsv", () => {
 
     expect(result.format).toBe("legacy");
     expect(result.issues).toEqual([]);
-    expect(result.records[0]).toMatchObject({ areaId: "legacy-area-1", name: "KRIS KURNIANTO" });
+    expect(result.records[0]).toMatchObject({
+      areaId: "legacy-area-1",
+      areaLabel: "mobile",
+      name: "KRIS KURNIANTO",
+    });
     expect(result.records[1]).toMatchObject({ beneficiaryType: "GROUP", quantity: 50 });
   });
 
@@ -89,6 +93,7 @@ describe("importPanitiaCsv", () => {
       origin: "INTERNAL",
       eats: true,
       areaId: "area-1",
+      areaLabel: "zone satu",
       attendance: { h2Siang: "HADIR", h1Siang: "TIDAK_HADIR", hPlus1: "TIDAK_HADIR" },
     });
   });
@@ -122,13 +127,23 @@ describe("importPanitiaCsv", () => {
     ]));
   });
 
-  it("reports unknown and ambiguous areas from the supplied snapshot", () => {
+  it("preserves unknown area labels for server-side creation and still blocks ambiguous areas", () => {
     const ambiguous = [...AREAS, { id: "area-3", code: "ALT", name: "Zone Satu" }];
-    const unknown = importPanitiaCsv(canonicalCsv(canonicalRow({ 10: "Tidak Ada" })), AREAS);
+    const unknown = importPanitiaCsv(canonicalCsv(canonicalRow({ 10: "  Tidak   Ada  " })), AREAS);
     const duplicate = importPanitiaCsv(canonicalCsv(canonicalRow({ 10: "Zone Satu" })), ambiguous);
 
-    expect(unknown.issues).toEqual([expect.objectContaining({ column: "AREA", message: expect.stringContaining("tidak ditemukan") })]);
-    expect(duplicate.issues).toEqual([expect.objectContaining({ column: "AREA", message: expect.stringContaining("ambigu") })]);
+    expect(unknown.issues).toEqual([]);
+    expect(unknown.records[0]).toMatchObject({
+      areaId: null,
+      areaLabel: "Tidak Ada",
+    });
+    expect(duplicate.records[0]).toMatchObject({
+      areaId: null,
+      areaLabel: "Zone Satu",
+    });
+    expect(duplicate.issues).toEqual([
+      expect.objectContaining({ column: "AREA", message: expect.stringContaining("ambigu") }),
+    ]);
   });
 
   it("requires the exact canonical or legacy header width", () => {
