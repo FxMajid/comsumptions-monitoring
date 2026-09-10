@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const UUID = z.string().uuid();
+// PostgreSQL accepts UUID-shaped values regardless of RFC version/variant bits.
+const UUID = z.guid();
 const BatchStatus = z.enum(["PREVIEW", "APPLIED", "EXPIRED"]);
 const RowOperation = z.enum(["INSERT", "UPDATE", "UNCHANGED", "BLOCKED"]);
 const ResultOperation = z.enum(["INSERT", "UPDATE", "UNCHANGED"]);

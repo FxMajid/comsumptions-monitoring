@@ -25,7 +25,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const MAX_CSV_BYTES = 512 * 1024;
 const ACCEPTED_CSV_TYPES = new Set(["", "text/csv", "application/csv", "application/vnd.ms-excel"]);
-const UUID = z.string().uuid();
+const UUID = z.guid();
 const PreviewResultSchema = z.object({ batch_id: UUID });
 const ConfirmResultSchema = z.object({ batch_id: UUID, status: z.literal("APPLIED") });
 

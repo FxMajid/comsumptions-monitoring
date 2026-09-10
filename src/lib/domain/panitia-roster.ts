@@ -28,8 +28,10 @@ const QuantitySchema = z.union([
   z.string().regex(/^[1-9]\d*$/u),
 ]);
 
+const DatabaseIdSchema = z.guid();
+
 const RosterRowSchema = z.object({
-  beneficiary_id: z.string().uuid(),
+  beneficiary_id: DatabaseIdSchema,
   name: z.string().min(1),
   quantity: QuantitySchema,
   origin: z.enum(["INTERNAL", "EXTERNAL"]).nullable(),
@@ -39,13 +41,13 @@ const RosterRowSchema = z.object({
   pickup_whatsapp: z.string().nullable(),
   meal_eligible: z.boolean(),
   source_row_number: z.number().int().positive(),
-  last_import_batch_id: z.string().uuid().nullable(),
+  last_import_batch_id: DatabaseIdSchema.nullable(),
   slots: RosterSlotsSchema,
   roster_updated_at: z.string(),
 });
 
 const ImportBatchSchema = z.object({
-  id: z.string().uuid(),
+  id: DatabaseIdSchema,
   csv_format: z.enum(["LEGACY_21", "CANONICAL"]),
   row_count: z.number().int().nonnegative(),
   insert_count: z.number().int().nonnegative(),
