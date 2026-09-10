@@ -123,7 +123,7 @@ async function getAreaSnapshot(eventId: string): Promise<PanitiaAreaSnapshot[]> 
     .eq("event_id", eventId);
   if (error) throw new Error("Master area gagal dibaca sebelum impor.", { cause: error });
 
-  const parsed = z.array(z.object({ id: UUID, code: z.string(), name: z.string() }))
+  const parsed = z.array(z.object({ id: z.guid(), code: z.string(), name: z.string() }))
     .safeParse(data ?? []);
   if (!parsed.success) throw new Error("Data master area dari database tidak valid.");
   return parsed.data;
